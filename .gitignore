@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.py[cod]
+assistant.db
+.env
+frontend/node_modules/
+frontend/dist/
+qdrant_storage/
