@@ -13,6 +13,17 @@ from app.services.rag import RagService
 router = APIRouter(tags=["chat"])
 
 
+@router.get("/models")
+async def list_models(request: Request) -> list[dict]:
+    """Returns all Ollama models available locally."""
+    rag_service: RagService = request.app.state.rag_service
+    try:
+        models = await rag_service.ollama.list_models()
+        return [{"id": m["name"], "name": m["name"]} for m in models]
+    except Exception:
+        return []
+
+
 @router.post("/chat")
 async def chat(
     payload: ChatRequest,
@@ -29,7 +40,6 @@ async def chat(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
 
 @router.get("/conversations", response_model=list[ConversationSummary])
 async def list_conversations(session: Session = Depends(get_session)) -> list[Conversation]:
@@ -192,7 +202,7 @@ async def _save_streamed_answer(
     completed = False
 
     yield rag_service.event("conversation", {"id": conversation_id})
-    async for event in rag_service.answer(payload.question, payload.kb_ids):
+    async for event in rag_service.answer(payload.question, payload.kb_ids, payload.model_id):
         event_name, data = _parse_event(event)
         if event_name == "token":
             assistant_content += data.get("text", "")

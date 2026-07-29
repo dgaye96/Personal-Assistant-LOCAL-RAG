@@ -71,7 +71,7 @@ class RagService:
             vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
         )
 
-    async def answer(self, question: str, kb_ids: list[int]) -> AsyncIterator[str]:
+    async def answer(self, question: str, kb_ids: list[int], model_id: str | None = None) -> AsyncIterator[str]:
         try:
             sources = await self.retrieve(question, kb_ids)
         except Exception as error:
@@ -93,7 +93,7 @@ class RagService:
             {"role": "user", "content": f"CONTEXTE:\n{context}\n\nQUESTION:\n{question}"},
         ]
         try:
-            async for token in self.ollama.stream_chat(messages, self.settings.default_temperature):
+            async for token in self.ollama.stream_chat(messages, self.settings.default_temperature, model=model_id):
                 yield self.event("token", {"text": token})
         except Exception as error:
             yield self.event("error", {"message": f"Modele local indisponible : {error}"})

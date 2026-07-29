@@ -14,6 +14,13 @@ class OllamaClient:
         self.embedding_model = settings.embedding_model
         self.llm_model = settings.llm_model
 
+    async def list_models(self) -> list[dict]:
+        """Returns all locally available Ollama models."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{self.base_url}/api/tags")
+            response.raise_for_status()
+        return response.json().get("models", [])
+
     async def embed(self, text: str) -> list[float]:
         payload = {"model": self.embedding_model, "input": text}
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -21,9 +28,9 @@ class OllamaClient:
             response.raise_for_status()
         return response.json()["embeddings"][0]
 
-    async def stream_chat(self, messages: list[dict[str, str]], temperature: float) -> AsyncIterator[str]:
+    async def stream_chat(self, messages: list[dict[str, str]], temperature: float, model: str | None = None) -> AsyncIterator[str]:
         payload = {
-            "model": self.llm_model,
+            "model": model or self.llm_model,
             "messages": messages,
             "options": {"temperature": temperature},
             "stream": True,

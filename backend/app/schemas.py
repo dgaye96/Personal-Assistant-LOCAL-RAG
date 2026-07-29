@@ -7,11 +7,13 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=12_000)
     kb_ids: list[int] = Field(default_factory=list)
     conversation_id: int | None = None
+    model_id: str | None = None
 
 
 class MessageUpdateRequest(BaseModel):
     question: str = Field(min_length=1, max_length=12_000)
     kb_ids: list[int] = Field(default_factory=list)
+    model_id: str | None = None
 
 
 class ConversationUpdateRequest(BaseModel):

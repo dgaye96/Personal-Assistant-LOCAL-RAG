@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowUp, Check, Copy, FileText, LoaderCircle, MessageSquareText, Pencil, ShieldCheck, Sparkles, SquarePen, Trash2, X } from 'lucide-react'
+import { ArrowUp, BrainCircuit, Check, Copy, FileText, LoaderCircle, MessageSquareText, Pencil, ShieldCheck, Sparkles, SquarePen, Trash2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -54,7 +54,22 @@ export function ChatPage() {
   const [editingConversationId, setEditingConversationId] = useState<number | null>(null)
   const [editedConversationTitle, setEditedConversationTitle] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
+  const [availableModels, setAvailableModels] = useState<Array<{id: string; name: string}>>([]
+  )
+  const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('pa-model') ?? '')
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setIsModelDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   const orderedMessages = messages
   const sourceCount = messages.reduce((total, message) => total + (message.sources?.length ?? 0), 0)
@@ -122,7 +137,28 @@ export function ChatPage() {
 
   useEffect(() => {
     void loadConversations()
+    void loadModels()
   }, [])
+
+  async function loadModels() {
+    try {
+      const response = await fetch(`${API_URL}/models`)
+      if (!response.ok) return
+      const models: Array<{id: string; name: string}> = await response.json()
+      setAvailableModels(models)
+      setSelectedModel((current) => {
+        const persisted = localStorage.getItem('pa-model')
+        if (persisted && models.some((m) => m.id === persisted)) return persisted
+        if (models.length > 0) {
+          localStorage.setItem('pa-model', models[0].id)
+          return models[0].id
+        }
+        return current
+      })
+    } catch {
+      // Ollama might be starting up — silently ignore
+    }
+  }
 
   async function loadConversations() {
     try {
@@ -184,7 +220,7 @@ export function ChatPage() {
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmedQuestion, kb_ids: [], conversation_id: conversationId }),
+        body: JSON.stringify({ question: trimmedQuestion, kb_ids: [], conversation_id: conversationId, model_id: selectedModel || null }),
       })
       if (!response.ok) throw new Error(t('serverResponded', { status: response.status }))
       await consumeStreamingResponse(response, assistantClientId, trimmedQuestion.slice(0, 80), createdAt)
@@ -235,7 +271,7 @@ export function ChatPage() {
       const response = await fetch(`${API_URL}/conversations/${conversationId}/messages/${message.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: updatedQuestion, kb_ids: [] }),
+        body: JSON.stringify({ question: updatedQuestion, kb_ids: [], model_id: selectedModel || null }),
       })
       if (!response.ok) throw new Error(t('questionUpdateFailed'))
       await consumeStreamingResponse(
@@ -492,9 +528,48 @@ export function ChatPage() {
                 disabled={isSending}
                 aria-label={t('yourQuestion')}
               />
-              <button className="chat-input-send" type="submit" disabled={!question.trim() || isSending} aria-label={isSending ? t('searching') : t('send')} title={isSending ? t('searching') : t('send')}>
-                {isSending ? <LoaderCircle className="send-loading" size={16} aria-hidden="true" /> : <ArrowUp size={16} aria-hidden="true" />}
-              </button>
+              <div className="chat-input-toolbar">
+                {availableModels.length > 0 ? (
+                  <div className="model-dropdown-wrap" ref={modelDropdownRef}>
+                    <button
+                      type="button"
+                      className={isModelDropdownOpen ? 'model-chip model-chip-open' : 'model-chip'}
+                      onClick={() => !isSending && setIsModelDropdownOpen((prev) => !prev)}
+                      disabled={isSending}
+                      aria-haspopup="listbox"
+                      aria-expanded={isModelDropdownOpen}
+                      aria-label={t('selectModel')}
+                    >
+                      <BrainCircuit size={13} className="model-chip-icon" />
+                      <span className="model-chip-name">{selectedModel}</span>
+                      <svg className={isModelDropdownOpen ? 'model-chip-arrow model-chip-arrow-open' : 'model-chip-arrow'} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    {isModelDropdownOpen && (
+                      <div className="model-dropdown-panel" role="listbox" aria-label={t('selectModel')}>
+                        <p className="model-dropdown-heading">{t('selectModel')}</p>
+                        <div className="model-dropdown-list">
+                          {availableModels.map((model) => (
+                            <button
+                              key={model.id}
+                              type="button"
+                              role="option"
+                              aria-selected={model.id === selectedModel}
+                              className={model.id === selectedModel ? 'model-dropdown-item model-dropdown-item-selected' : 'model-dropdown-item'}
+                              onClick={() => { setSelectedModel(model.id); localStorage.setItem('pa-model', model.id); setIsModelDropdownOpen(false); }}
+                            >
+                              <span className="model-dropdown-check">{model.id === selectedModel && <Check size={13} />}</span>
+                              <span className="model-dropdown-name">{model.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : <span />}
+                <button className="chat-input-send" type="submit" disabled={!question.trim() || isSending} aria-label={isSending ? t('searching') : t('send')} title={isSending ? t('searching') : t('send')}>
+                  {isSending ? <LoaderCircle className="send-loading" size={16} aria-hidden="true" /> : <ArrowUp size={16} aria-hidden="true" />}
+                </button>
+              </div>
             </form>
             <p className="chat-input-hint">{t('privacyChat')}</p>
           </div>
