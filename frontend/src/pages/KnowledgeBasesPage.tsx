@@ -1,5 +1,5 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { Check, Database, FileUp, FolderPlus, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
+import { Check, Database, FileUp, FolderPlus, Plus, Trash2, X } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -12,6 +12,14 @@ type KnowledgeBase = {
   document_count: number
 }
 
+type IngestBatchResponse = {
+  documents: Array<{
+    filename: string
+    chunks_indexed: number
+  }>
+  chunks_indexed: number
+}
+
 export function KnowledgeBasesPage() {
   const { t } = useLanguage()
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([])
@@ -21,7 +29,8 @@ export function KnowledgeBasesPage() {
   const [editedName, setEditedName] = useState('')
   const [editedDescription, setEditedDescription] = useState('')
   const [note, setNote] = useState('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [isIngesting, setIsIngesting] = useState(false)
   const [isSavingBase, setIsSavingBase] = useState(false)
@@ -51,13 +60,27 @@ export function KnowledgeBasesPage() {
     setEditedName(knowledgeBase?.name ?? '')
     setEditedDescription(knowledgeBase?.description ?? '')
     setNote('')
-    setSelectedFile(null)
+    setSelectedFiles([])
   }
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setSelectedFile(event.target.files?.[0] ?? null)
+    setSelectedFiles(Array.from(event.target.files ?? []))
     setNote('')
     setStatusMessage(null)
+    event.target.value = ''
+  }
+
+  function onFilesDropped(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    setIsDraggingFiles(false)
+    if (isIngesting) return
+    setSelectedFiles(Array.from(event.dataTransfer.files))
+    setNote('')
+    setStatusMessage(null)
+  }
+
+  function removeSelectedFile(index: number) {
+    setSelectedFiles((files) => files.filter((_, fileIndex) => fileIndex !== index))
   }
 
   async function createKnowledgeBase(event: FormEvent) {
@@ -128,23 +151,24 @@ export function KnowledgeBasesPage() {
 
   async function ingestContent(event: FormEvent) {
     event.preventDefault()
-    if ((!note.trim() && !selectedFile) || isIngesting || !selectedBase) return
+    if ((!note.trim() && selectedFiles.length === 0) || isIngesting || !selectedBase) return
 
     setIsIngesting(true)
     setStatusMessage(null)
     try {
       const formData = new FormData()
       formData.append('kb_id', String(selectedBase.id))
-      if (selectedFile) formData.append('file', selectedFile)
+      if (selectedFiles.length > 0) {
+        selectedFiles.forEach((file) => formData.append('files', file))
+      }
       else formData.append('note', note.trim())
       const response = await fetch(`${API_URL}/ingest`, { method: 'POST', body: formData })
-      const result = await response.json()
+      const result: IngestBatchResponse & { detail?: string } = await response.json()
       if (!response.ok) throw new Error(result.detail ?? t('serverResponded', { status: response.status }))
-      setStatusMessage(t('indexedContent', { filename: result.filename, name: selectedBase.name, count: result.chunks_indexed, plural: result.chunks_indexed > 1 ? 's' : '' }))
+      const filenames = result.documents.map((document) => document.filename).join(', ')
+      setStatusMessage(t('indexedContent', { filename: filenames, name: selectedBase.name, count: result.chunks_indexed, plural: result.chunks_indexed > 1 ? 's' : '' }))
       setNote('')
-      setSelectedFile(null)
-      const input = document.getElementById('document-upload') as HTMLInputElement | null
-      if (input) input.value = ''
+      setSelectedFiles([])
       await loadKnowledgeBases(selectedBase.id)
     } catch (caughtError) {
       setStatusMessage(caughtError instanceof Error ? caughtError.message : t('ingestionFailed'))
@@ -220,16 +244,35 @@ export function KnowledgeBasesPage() {
                 <textarea
                   className="field-textarea"
                   value={note}
-                  onChange={(event) => { setNote(event.target.value); setSelectedFile(null); setStatusMessage(null) }}
+                  onChange={(event) => { setNote(event.target.value); setSelectedFiles([]); setStatusMessage(null) }}
                   placeholder={t('notePlaceholder')}
                   rows={6}
-                  disabled={isIngesting || Boolean(selectedFile)}
+                  disabled={isIngesting || selectedFiles.length > 0}
                 />
+                <div
+                  className={isDraggingFiles ? 'drop-zone is-dragging' : 'drop-zone'}
+                  onDragEnter={(event) => { event.preventDefault(); if (!isIngesting) setIsDraggingFiles(true) }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragLeave={(event) => { if (event.currentTarget === event.target) setIsDraggingFiles(false) }}
+                  onDrop={onFilesDropped}
+                >
+                  <FileUp size={20} aria-hidden="true" />
+                  <div className="drop-zone-content">
+                    <span className="drop-zone-title">{t('chooseFile')}</span>
+                    <span className="drop-zone-hint">{t('supportedFiles')}</span>
+                  </div>
+                  <label className="upload-label" htmlFor="document-upload">{t('chooseFile')}</label>
+                  <input className="upload-input" id="document-upload" type="file" multiple accept=".pdf,.docx,.txt,.md" onChange={onFileChange} disabled={isIngesting} />
+                </div>
+                {selectedFiles.length > 0 && <ul className="selected-file-list" aria-label={t('documentCount', { count: selectedFiles.length, plural: selectedFiles.length > 1 ? 's' : '' })}>
+                  {selectedFiles.map((file, index) => <li className="selected-file" key={`${file.name}-${file.lastModified}-${index}`}>
+                    <span>{file.name}</span>
+                    <button type="button" className="selected-file-remove" onClick={() => removeSelectedFile(index)} disabled={isIngesting} aria-label={`${t('delete')} ${file.name}`}><X size={14} /></button>
+                  </li>)}
+                </ul>}
                 <div className="upload-row">
-                  <label className="upload-label" htmlFor="document-upload"><FileUp size={15} />{t('chooseFile')}</label>
-                  <input className="upload-input" id="document-upload" type="file" accept=".pdf,.docx,.txt,.md" onChange={onFileChange} disabled={isIngesting} />
-                  <span className="upload-filename">{selectedFile?.name ?? t('noFileSelected')}</span>
-                  <button className="btn-primary" type="submit" disabled={(!note.trim() && !selectedFile) || isIngesting}>{isIngesting ? t('indexing') : <><Plus size={15} />{t('index')}</>}</button>
+                  <span className="upload-filename">{selectedFiles.length > 0 ? t('documentCount', { count: selectedFiles.length, plural: selectedFiles.length > 1 ? 's' : '' }) : t('noFileSelected')}</span>
+                  <button className="btn-primary" type="submit" disabled={(!note.trim() && selectedFiles.length === 0) || isIngesting}>{isIngesting ? t('indexing') : <><Plus size={15} />{t('index')}</>}</button>
                 </div>
               </form>
             </div>

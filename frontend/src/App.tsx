@@ -1,13 +1,24 @@
+import { useState } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { BookOpen, MessageCircle, Moon, Sparkles, Sun } from 'lucide-react'
-import { useLanguage } from './i18n/LanguageContext'
+import { type Language, useLanguage } from './i18n/LanguageContext'
 import { useTheme } from './theme/ThemeContext'
 import { ChatPage } from './pages/ChatPage'
 import { KnowledgeBasesPage } from './pages/KnowledgeBasesPage'
 
+const languageOptions: Array<{ value: Language; label: string; flag: string }> = [
+  { value: 'fr', label: 'Francais', flag: 'fr' },
+  { value: 'en', label: 'English', flag: 'us' },
+  { value: 'es', label: 'Espanol', flag: 'es' },
+  { value: 'pt', label: 'Portugues', flag: 'pt' },
+  { value: 'ar', label: 'العربية', flag: 'sa' },
+]
+
 function App() {
   const { mode, toggleMode } = useTheme()
   const { language, setLanguage, t } = useLanguage()
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false)
+  const selectedLanguage = languageOptions.find((option) => option.value === language) ?? languageOptions[0]
 
   return (
     <div className="app-frame">
@@ -20,15 +31,32 @@ function App() {
           <NavLink to="/bases" title={t('knowledgeBases')} aria-label={t('knowledgeBases')}><BookOpen size={20} /></NavLink>
         </nav>
         <div className="app-sidebar-footer">
-          <label className="lang-select" aria-label={t('chooseLanguage')}>
-            <select value={language} onChange={(event) => setLanguage(event.target.value as typeof language)} title={t('chooseLanguage')}>
-              <option value="fr">FR</option>
-              <option value="en">EN</option>
-              <option value="es">ES</option>
-              <option value="pt">PT</option>
-              <option value="ar">AR</option>
-            </select>
-          </label>
+          <div className="lang-picker">
+            <button
+              className="lang-picker-trigger"
+              type="button"
+              onClick={() => setIsLanguageMenuOpen((isOpen) => !isOpen)}
+              aria-label={t('chooseLanguage')}
+              aria-expanded={isLanguageMenuOpen}
+              title={t('chooseLanguage')}
+            >
+              <span className={`flag-icon flag-${selectedLanguage.flag}`} aria-hidden="true" />
+            </button>
+            {isLanguageMenuOpen && <div className="lang-picker-menu" role="menu" aria-label={t('chooseLanguage')}>
+              {languageOptions.map((option) => <button
+                className={option.value === language ? 'lang-picker-option active' : 'lang-picker-option'}
+                key={option.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={option.value === language}
+                aria-label={option.label}
+                title={option.label}
+                onClick={() => { setLanguage(option.value); setIsLanguageMenuOpen(false) }}
+              >
+                <span className={`flag-icon flag-${option.flag}`} aria-hidden="true" />
+              </button>)}
+            </div>}
+          </div>
           <button className="icon-btn" type="button" onClick={toggleMode} aria-label={mode === 'light' ? t('enableDarkMode') : t('enableLightMode')} title={mode === 'light' ? t('enableDarkMode') : t('enableLightMode')}>
             {mode === 'light' ? <Moon size={17} /> : <Sun size={17} />}
           </button>

@@ -173,7 +173,7 @@ const translations = {
     knowledgeBaseList: 'Knowledge base list',
     privacyKnowledge: 'Files are analyzed and indexed locally only.',
     organization: 'Organization',
-    myBases: 'My bases',
+    myBases: 'Knowledge base',
     noBases: 'No knowledge base yet. Create one below.',
     newBase: 'New knowledge base',
     baseNamePlaceholder: 'For example: Professional profile',

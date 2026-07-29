@@ -35,6 +35,12 @@ class IngestResponse(BaseModel):
     chunks_indexed: int
 
 
+class IngestBatchResponse(BaseModel):
+    kb_id: int
+    documents: list[IngestResponse]
+    chunks_indexed: int
+
+
 class KnowledgeBaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)

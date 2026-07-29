@@ -98,7 +98,7 @@ L'interface est disponible en francais et en anglais. Utilisez le selecteur `FR 
 
 ## Ajouter des connaissances
 
-Au premier demarrage, l'application cree une `Base personnelle` avec l'identifiant `1`. La page **Bases de connaissances** permet de lister les bases, en creer de nouvelles, modifier leur nom ou description et les supprimer. L'indexation utilise toujours la base selectionnee. Depuis cette page, collez une note ou choisissez un fichier PDF, DOCX, TXT ou MD de 20 Mo maximum. Une note et un fichier ne peuvent pas etre envoyes simultanement.
+Au premier demarrage, l'application cree une `Base personnelle` avec l'identifiant `1`. La page **Bases de connaissances** permet de lister les bases, en creer de nouvelles, modifier leur nom ou description et les supprimer. L'indexation utilise toujours la base selectionnee. Depuis cette page, collez une note ou importez plusieurs fichiers PDF, DOCX, TXT ou MD de 20 Mo maximum chacun, par selection ou glisser-deposer. Une note et des fichiers ne peuvent pas etre envoyes simultanement.
 
 L'endpoint `POST /ingest` accepte aussi une note via un formulaire :
 
