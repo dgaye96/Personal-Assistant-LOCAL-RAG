@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import AsyncIterator
 
 from qdrant_client import AsyncQdrantClient, models
@@ -7,10 +8,26 @@ from app.config import AppSettings
 from app.schemas import RetrievedSource
 from app.services.ollama import OllamaClient
 
-SYSTEM_PROMPT = """Tu es un coach personnel factuel et bienveillant. Réponds uniquement
-a partir du CONTEXTE fourni. N'utilise aucune connaissance extérieure et n'invente rien.
-Si le contexte ne contient pas l'information demandée, réponds exactement :
-« je ne dispose pas de cette information ». Cite les éléments de contexte pertinents."""
+SYSTEM_PROMPT = """You are a factual, supportive personal coach. Use only the supplied CONTEXT.
+Do not use outside knowledge and do not invent facts. Reply entirely in the same language
+as the QUESTION, regardless of the language used in the context or interface. If the context
+does not contain the requested information, say only the equivalent of "I do not have this
+information" in the language of the QUESTION. Cite relevant context items when answering."""
+
+INSUFFICIENT_CONTEXT_RESPONSES = {
+    "ar": "لا أملك هذه المعلومة.",
+    "en": "I do not have this information.",
+    "es": "No dispongo de esta información.",
+    "fr": "Je ne dispose pas de cette information.",
+    "pt": "Não disponho desta informação.",
+}
+
+LANGUAGE_MARKERS = {
+    "en": {"the", "what", "how", "which", "can", "could", "please", "my", "skills", "experience"},
+    "es": {"qué", "que", "cómo", "como", "cuál", "cual", "puedo", "mis", "habilidades", "experiencia"},
+    "fr": {"quel", "quelle", "quels", "quelles", "comment", "puis", "mes", "compétences", "experience"},
+    "pt": {"como", "quais", "posso", "minhas", "competências", "experiência", "obrigado"},
+}
 
 
 class RagService:
@@ -62,7 +79,7 @@ class RagService:
             return
 
         if not sources:
-            yield self.event("token", {"text": "information insuffisante"})
+            yield self.event("token", {"text": insufficient_context_response(question)})
             yield self.event("sources", {"items": []})
             yield self.event("done", {})
             return
@@ -87,3 +104,15 @@ class RagService:
     @staticmethod
     def event(name: str, data: dict) -> str:
         return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def insufficient_context_response(question: str) -> str:
+    if any("\u0600" <= character <= "\u06ff" for character in question):
+        return INSUFFICIENT_CONTEXT_RESPONSES["ar"]
+
+    words = set(re.findall(r"[^\W\d_]+", question.casefold(), flags=re.UNICODE))
+    language, score = max(
+        ((candidate, len(words & markers)) for candidate, markers in LANGUAGE_MARKERS.items()),
+        key=lambda result: result[1],
+    )
+    return INSUFFICIENT_CONTEXT_RESPONSES[language if score else "fr"]

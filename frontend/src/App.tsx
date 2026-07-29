@@ -10,17 +10,17 @@ function App() {
   const { language, setLanguage, t } = useLanguage()
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="brand-lockup">
-          <div className="brand-mark"><Sparkles size={20} strokeWidth={2.4} /></div>
-          <div>
-            <p className="eyebrow">{t('localPrivate')}</p>
-            <h1>Assistant Personnelle</h1>
-          </div>
+    <div className="app-frame">
+      <aside className="app-sidebar" aria-label={t('mainNavigation')}>
+        <div className="app-sidebar-brand" aria-hidden="true">
+          <Sparkles size={18} strokeWidth={2.4} />
         </div>
-        <div className="topbar-actions">
-          <label className="language-switcher" aria-label={t('chooseLanguage')}>
+        <nav className="app-sidebar-nav">
+          <NavLink to="/chat" title={t('chat')} aria-label={t('chat')}><MessageCircle size={20} /></NavLink>
+          <NavLink to="/bases" title={t('knowledgeBases')} aria-label={t('knowledgeBases')}><BookOpen size={20} /></NavLink>
+        </nav>
+        <div className="app-sidebar-footer">
+          <label className="lang-select" aria-label={t('chooseLanguage')}>
             <select value={language} onChange={(event) => setLanguage(event.target.value as typeof language)} title={t('chooseLanguage')}>
               <option value="fr">FR</option>
               <option value="en">EN</option>
@@ -29,21 +29,19 @@ function App() {
               <option value="ar">AR</option>
             </select>
           </label>
-          <button className="theme-toggle icon-button" type="button" onClick={toggleMode} aria-label={mode === 'light' ? t('enableDarkMode') : t('enableLightMode')} title={mode === 'light' ? t('enableDarkMode') : t('enableLightMode')}>
-            {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          <button className="icon-btn" type="button" onClick={toggleMode} aria-label={mode === 'light' ? t('enableDarkMode') : t('enableLightMode')} title={mode === 'light' ? t('enableDarkMode') : t('enableLightMode')}>
+            {mode === 'light' ? <Moon size={17} /> : <Sun size={17} />}
           </button>
         </div>
-      </header>
-      <nav className="primary-nav" aria-label={t('mainNavigation')}>
-        <NavLink to="/chat"><MessageCircle size={17} />{t('chat')}</NavLink>
-        <NavLink to="/bases"><BookOpen size={17} />{t('knowledgeBases')}</NavLink>
-      </nav>
-      <Routes>
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/bases" element={<KnowledgeBasesPage />} />
-        <Route path="*" element={<Navigate to="/chat" replace />} />
-      </Routes>
-    </main>
+      </aside>
+      <main className="app-main">
+        <Routes>
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/bases" element={<KnowledgeBasesPage />} />
+          <Route path="*" element={<Navigate to="/chat" replace />} />
+        </Routes>
+      </main>
+    </div>
   )
 }
 

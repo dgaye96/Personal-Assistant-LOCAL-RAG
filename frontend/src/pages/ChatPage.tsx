@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, Check, ChevronRight, CirclePlus, Clock3, FileText, MessageSquareText, Pencil, Send, Sparkles, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { ArrowUp, Check, Copy, FileText, LoaderCircle, MessageSquareText, Pencil, ShieldCheck, Sparkles, SquarePen, Trash2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -53,9 +53,17 @@ export function ChatPage() {
   const [editedQuestion, setEditedQuestion] = useState('')
   const [editingConversationId, setEditingConversationId] = useState<number | null>(null)
   const [editedConversationTitle, setEditedConversationTitle] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
 
   const orderedMessages = messages
   const sourceCount = messages.reduce((total, message) => total + (message.sources?.length ?? 0), 0)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages])
 
   function formatDateTime(value?: string) {
     if (!value) return null
@@ -297,6 +305,13 @@ export function ChatPage() {
     }
   }
 
+  function copyMessageContent(content: string, messageKey: string) {
+    void navigator.clipboard.writeText(content).then(() => {
+      setCopiedMessageId(messageKey)
+      setTimeout(() => setCopiedMessageId(null), 2000)
+    })
+  }
+
   async function deleteConversation(conversation: ConversationSummary) {
     if (isSending || !window.confirm(t('deleteConversationConfirmation'))) return
 
@@ -312,25 +327,26 @@ export function ChatPage() {
   }
 
   return (
-    <section className="page-panel chat-page" aria-label={t('chatWithCoach')}>
-      <aside className="history-panel" aria-label={t('conversationHistory')}>
-        <div className="history-heading">
-          <div>
-            <p className="eyebrow">{t('local')}</p>
-            <h2>{t('history')}</h2>
-          </div>
-          <button type="button" className="new-conversation" onClick={startNewConversation} disabled={isSending} title={t('newConversation')}><CirclePlus size={15} />{t('new')}</button>
+    <div className="chat-layout" aria-label={t('chatWithCoach')}>
+
+      {/* ── Sidebar ── */}
+      <aside className="chat-sidebar" aria-label={t('conversationHistory')}>
+        <div className="chat-sidebar-header">
+          <span className="chat-sidebar-title">Personal Assistant</span>
+          <button className="new-chat-btn" type="button" onClick={startNewConversation} disabled={isSending} title={t('newConversation')} aria-label={t('newConversation')}>
+            <SquarePen size={15} />
+          </button>
         </div>
-        <div className="history-list">
-          {conversations.length === 0 && <p>{t('noSavedConversations')}</p>}
+        <div className="chat-history-list">
+          {conversations.length === 0 && <p className="history-empty">{t('noSavedConversations')}</p>}
           {conversations.map((conversation) => (
             <div className="history-entry" key={conversation.id}>
               {editingConversationId === conversation.id ? (
                 <div className="history-rename">
                   <input value={editedConversationTitle} onChange={(event) => setEditedConversationTitle(event.target.value)} aria-label={t('conversationNamePlaceholder')} maxLength={120} autoFocus />
-                  <div>
-                    <button type="button" onClick={() => void saveConversationRename(conversation)} disabled={!editedConversationTitle.trim() || isSending} title={t('saveConversationName')}><Check size={14} /></button>
-                    <button type="button" onClick={cancelConversationRename} disabled={isSending} title={t('cancelConversationRename')}><X size={14} /></button>
+                  <div className="history-rename-actions">
+                    <button type="button" onClick={() => void saveConversationRename(conversation)} disabled={!editedConversationTitle.trim() || isSending} title={t('saveConversationName')}><Check size={13} /></button>
+                    <button type="button" onClick={cancelConversationRename} disabled={isSending} title={t('cancelConversationRename')}><X size={13} /></button>
                   </div>
                 </div>
               ) : (
@@ -341,102 +357,149 @@ export function ChatPage() {
                     onClick={() => void loadConversation(conversation.id)}
                     disabled={isSending || isLoadingHistory}
                   >
-                    <span>{conversation.title}</span>
-                    <small>{formatDateTime(conversation.created_at)}<ChevronRight size={13} /></small>
+                    <span className="history-item-title">{conversation.title}</span>
+                    <span className="history-item-date">{formatDateTime(conversation.created_at)}</span>
                   </button>
                   <div className="history-entry-actions">
-                    <button type="button" onClick={() => beginConversationRename(conversation)} disabled={isSending} title={t('renameConversation')} aria-label={t('renameConversation')}><Pencil size={13} /></button>
-                    <button type="button" className="delete-conversation" onClick={() => void deleteConversation(conversation)} disabled={isSending} title={t('deleteConversation')} aria-label={t('deleteConversation')}><Trash2 size={13} /></button>
+                    <button type="button" onClick={() => beginConversationRename(conversation)} disabled={isSending} title={t('renameConversation')} aria-label={t('renameConversation')}><Pencil size={12} /></button>
+                    <button type="button" className="delete-conversation" onClick={() => void deleteConversation(conversation)} disabled={isSending} title={t('deleteConversation')} aria-label={t('deleteConversation')}><Trash2 size={12} /></button>
                   </div>
                 </>
               )}
             </div>
           ))}
         </div>
+        <div className="chat-sidebar-footer">
+          <div className="privacy-badge"><ShieldCheck size={12} /><span>{t('localPrivate')}</span></div>
+        </div>
       </aside>
-      <div className="conversation-workspace">
-        <div className="privacy-note"><span className="privacy-icon"><Sparkles size={16} /></span><span>{t('privacyChat')}</span></div>
+
+      {/* ── Main ── */}
+      <div className="chat-main">
         {activeConversation && (
-          <section className="conversation-summary" aria-label={t('activeDiscussion')}>
-            <div>
-              <p className="eyebrow">{t('activeDiscussion')}</p>
-              <h2>{activeConversation.title || t('newDiscussion')}</h2>
-            </div>
-            <div className="conversation-facts">
-              <span><CalendarDays size={14} />{t('discussionStarted', { date: formatDateTime(activeConversation.created_at) ?? '' })}</span>
-              <span><MessageSquareText size={14} />{t('messageCount', { count: messages.length, plural: messages.length > 1 ? 's' : '' })}</span>
-              <span><FileText size={14} />{t('sourceCount', { count: sourceCount, plural: sourceCount > 1 ? 's' : '' })}</span>
-            </div>
-          </section>
-        )}
-        <section className="messages" aria-label={t('responseHistory')} aria-live="polite">
-          {messages.length === 0 && <p className="empty-state">{t('noAnswersYet')}</p>}
-          {orderedMessages.map((message, index) => (
-            <article className={`message ${message.role}`} key={`${message.role}-${index}`}>
-              <div className="message-meta">
-                <p className="message-label">{message.role === 'user' ? t('you') : t('coach')}</p>
-                {message.created_at && <span><Clock3 size={12} />{t('sentAt', { date: formatDateTime(message.created_at) ?? '' })}</span>}
-              </div>
-              {message.role === 'assistant'
-                ? (
-                  <div className="message-content answer-markdown">
-                    {message.content
-                      ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                      : isSending && <div className="response-loading" role="status" aria-label={t('responseLoading')}><span /><span /><span /></div>}
-                    {isSending && index === orderedMessages.length - 1 && message.content && <span className="streaming-indicator" aria-label={t('responseLoading')} />}
-                  </div>
-                )
-                : editingMessageId === message.id
-                  ? (
-                    <div className="question-edit">
-                      <textarea value={editedQuestion} onChange={(event) => setEditedQuestion(event.target.value)} aria-label={t('editQuestionPlaceholder')} rows={3} maxLength={12_000} />
-                      <div>
-                        <button type="button" className="edit-save" onClick={() => void saveQuestionEdit(message)} disabled={!editedQuestion.trim() || isSending} title={t('saveQuestion')}><Check size={15} /></button>
-                        <button type="button" className="edit-cancel" onClick={cancelQuestionEdit} disabled={isSending} title={t('cancelEdit')}><X size={15} /></button>
-                      </div>
-                    </div>
-                  )
-                  : <p className="message-content">{message.content}</p>}
-              {message.role === 'user' && message.id && editingMessageId !== message.id && (
-                <div className="message-actions">
-                  <button type="button" onClick={() => beginQuestionEdit(message)} disabled={isSending} title={t('editQuestion')} aria-label={t('editQuestion')}><Pencil size={14} /></button>
-                  <button type="button" className="delete-question" onClick={() => void deleteQuestion(message)} disabled={isSending} title={t('deleteQuestion')} aria-label={t('deleteQuestion')}><Trash2 size={14} /></button>
-                </div>
-              )}
-              {message.role === 'assistant' && message.sources && (
-                <section className="sources" aria-label={t('sourcesUsed')}>
-                  <div className="sources-heading"><p>{t('sourcesUsed')}</p><span>{message.sources.length}</span></div>
-                  {message.sources.length === 0
-                    ? <span>{t('noRelevantSources')}</span>
-                    : message.sources.map((source) => (
-                      <details key={`${source.document_id}-${source.chunk_index}`}>
-                        <summary>
-                          <span className="source-name"><FileText size={15} /><span>{source.source}</span></span>
-                          <span className="source-score">{Math.round(source.score * 100)} %</span>
-                        </summary>
-                        <p>{source.text}</p>
-                      </details>
-                    ))}
-                </section>
-              )}
-            </article>
-          ))}
-        </section>
-        <section className="chat-composer-panel" aria-label={t('talkToCoach')}>
-          <div className="chat-heading">
-            <div>
-              <p className="eyebrow">{t('assistant')}</p>
-              <h2>{t('talkToCoach')}</h2>
+          <div className="convo-banner">
+            <span className="convo-banner-title">{activeConversation.title}</span>
+            <div className="convo-banner-facts">
+              <span><MessageSquareText size={13} />{t('messageCount', { count: messages.length, plural: messages.length > 1 ? 's' : '' })}</span>
+              <span><FileText size={13} />{t('sourceCount', { count: sourceCount, plural: sourceCount > 1 ? 's' : '' })}</span>
             </div>
           </div>
-          <form className="composer" onSubmit={sendMessage}>
-            <label htmlFor="question">{t('yourQuestion')}</label>
-            <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t('questionPlaceholder')} rows={3} disabled={isSending} />
-            <button type="submit" disabled={!question.trim() || isSending}>{isSending ? t('searching') : <><span>{t('send')}</span><Send size={16} /></>}</button>
-          </form>
-        </section>
-        {error && <p className="error" role="alert">{error}</p>}
+        )}
+
+        <div className="messages-scroll" ref={scrollRef} aria-label={t('responseHistory')} aria-live="polite">
+          {messages.length === 0 ? (
+            <div className="chat-welcome">
+              <div className="chat-welcome-icon"><Sparkles size={26} strokeWidth={1.8} /></div>
+              <h2>Personal Assistant</h2>
+              <p>{t('noAnswersYet')}</p>
+            </div>
+          ) : (
+            <div className="messages-column">
+              {orderedMessages.map((message, index) => (
+                <div className={`msg-row ${message.role}`} key={`${message.role}-${index}`}>
+                  {message.role === 'assistant' && (
+                    <div className="msg-avatar" aria-hidden="true"><Sparkles size={14} strokeWidth={2.2} /></div>
+                  )}
+                  {message.role === 'user' ? (
+                    <div className="msg-user-wrap">
+                      {editingMessageId === message.id ? (
+                        <div className="question-edit">
+                          <textarea value={editedQuestion} onChange={(event) => setEditedQuestion(event.target.value)} aria-label={t('editQuestionPlaceholder')} rows={3} maxLength={12_000} />
+                          <div className="question-edit-actions">
+                            <button type="button" className="edit-save" onClick={() => void saveQuestionEdit(message)} disabled={!editedQuestion.trim() || isSending} title={t('saveQuestion')}><Check size={14} /></button>
+                            <button type="button" className="edit-cancel" onClick={cancelQuestionEdit} disabled={isSending} title={t('cancelEdit')}><X size={14} /></button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="msg-user-bubble">{message.content}</p>
+                          {message.id && editingMessageId !== message.id && (
+                            <div className="msg-user-actions">
+                              <button type="button" onClick={() => beginQuestionEdit(message)} disabled={isSending} title={t('editQuestion')} aria-label={t('editQuestion')}><Pencil size={13} /></button>
+                              <button type="button" className="delete-question" onClick={() => void deleteQuestion(message)} disabled={isSending} title={t('deleteQuestion')} aria-label={t('deleteQuestion')}><Trash2 size={13} /></button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="msg-assistant-body">
+                      {message.content ? (
+                        <div className="answer-markdown">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          {isSending && index === orderedMessages.length - 1 && <span className="streaming-indicator" aria-label={t('responseLoading')} />}
+                        </div>
+                      ) : isSending ? (
+                        <div className="response-loading" role="status" aria-label={t('responseLoading')}><span /><span /><span /></div>
+                      ) : null}
+                      {message.content && !isSending && (
+                        <div className="msg-assistant-actions">
+                          <button
+                            type="button"
+                            className={copiedMessageId === `${message.role}-${index}` ? 'msg-copy-btn copied' : 'msg-copy-btn'}
+                            onClick={() => copyMessageContent(message.content, `${message.role}-${index}`)}
+                            title={t('copyMessage')}
+                            aria-label={t('copyMessage')}
+                          >
+                            {copiedMessageId === `${message.role}-${index}` ? <><Check size={13} /><span>{t('copied')}</span></> : <><Copy size={13} /><span>{t('copyMessage')}</span></>}
+                          </button>
+                        </div>
+                      )}
+                      {message.sources && (
+                        <section className="sources-section" aria-label={t('sourcesUsed')}>
+                          {message.sources.length === 0 ? (
+                            <p className="no-sources">{t('noRelevantSources')}</p>
+                          ) : (
+                            <>
+                              <div className="sources-header">
+                                <span className="sources-label">{t('sourcesUsed')}</span>
+                                <span className="sources-count">{message.sources.length}</span>
+                              </div>
+                              <div className="sources-list">
+                                {message.sources.map((source) => (
+                                  <details className="source-item" key={`${source.document_id}-${source.chunk_index}`}>
+                                    <summary>
+                                      <span className="source-name"><FileText size={14} /><span>{source.source}</span></span>
+                                      <span className="source-score">{Math.round(source.score * 100)} %</span>
+                                    </summary>
+                                    <p className="source-text">{source.text}</p>
+                                  </details>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </section>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Input bar */}
+        <div className="chat-input-bar">
+          <div className="chat-input-inner">
+            {error && <p className="chat-error" role="alert">{error}</p>}
+            <form className="chat-input-form" onSubmit={sendMessage}>
+              <textarea
+                id="question"
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder={t('questionPlaceholder')}
+                rows={1}
+                disabled={isSending}
+                aria-label={t('yourQuestion')}
+              />
+              <button className="chat-input-send" type="submit" disabled={!question.trim() || isSending} aria-label={isSending ? t('searching') : t('send')} title={isSending ? t('searching') : t('send')}>
+                {isSending ? <LoaderCircle className="send-loading" size={16} aria-hidden="true" /> : <ArrowUp size={16} aria-hidden="true" />}
+              </button>
+            </form>
+            <p className="chat-input-hint">{t('privacyChat')}</p>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
