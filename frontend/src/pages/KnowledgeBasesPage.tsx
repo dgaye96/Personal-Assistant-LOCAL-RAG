@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
-import { BookOpen, Check, Database, FileUp, FolderPlus, Plus, Trash2, X, FileText } from 'lucide-react'
+import { Check, Database, FileUp, FolderPlus, Plus, Trash2, X } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -214,7 +214,8 @@ export function KnowledgeBasesPage() {
 
         {selectedBase ? (
           <>
-            <div className="form-card">
+            <div className="kb-card-grid">
+              <div className="form-card kb-card-edit">
               <div className="form-card-header">
                 <span className="form-card-title">{t('editBase')}</span>
                 <span className="form-card-sub">{t('documentCount', { count: selectedBase.document_count, plural: selectedBase.document_count > 1 ? 's' : '' })}</span>
@@ -235,7 +236,7 @@ export function KnowledgeBasesPage() {
               </form>
             </div>
 
-            <div className="form-card">
+            <div className="form-card kb-card-ingest">
               <div className="form-card-header">
                 <span className="form-card-title">{t('addKnowledge')}</span>
                 <span className="form-card-sub">{t('supportedFiles')}</span>
@@ -275,6 +276,7 @@ export function KnowledgeBasesPage() {
                   <button className="btn-primary" type="submit" disabled={(!note.trim() && selectedFiles.length === 0) || isIngesting}>{isIngesting ? t('indexing') : <><Plus size={15} />{t('index')}</>}</button>
                 </div>
               </form>
+            </div>
             </div>
           </>
         ) : (
