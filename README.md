@@ -1,6 +1,6 @@
-# Assistant personnel RAG local
+# Local personal assistant RAG
 
-Assistant et coach personnel qui s'appuie exclusivement sur les informations stockees sur votre machine. Cette version livre le socle RAG local, l'ingestion de documents et de notes : Qdrant, Ollama, SQLite, une API FastAPI a flux SSE et une interface React.
+Personal assistant and coach that relies exclusively on information stored on your machine. This version provides the local RAG foundation, document and note ingestion: Qdrant, Ollama, SQLite, an SSE-based FastAPI API, and a React interface.
 
 ## Architecture
 
@@ -13,66 +13,66 @@ FastAPI (localhost:8000) ---- SQLite (assistant.db)
           |
           +---- Ollama (localhost:11434): LLM + embeddings
           |
-          +---- Qdrant (localhost:6333): vecteurs
+          +---- Qdrant (localhost:6333): vectors
 ```
 
-Qdrant utilise une collection unique, `personal_assistant_chunks`. Chaque vecteur portera un champ `kb_id`; cette approche rend la future recherche sur plusieurs bases possible dans une requete filtree tout en conservant une seule configuration de vecteurs. Les ports Qdrant sont lies a `127.0.0.1` et la telemetrie est desactivee. Le backend refuse aussi toute URL de service qui ne cible pas `localhost`, `127.0.0.1` ou `::1`.
+Qdrant uses a single collection, `personal_assistant_chunks`. Each vector carries a `kb_id` field; this approach makes future multi-knowledge-base search possible in a filtered query while keeping a single vector configuration. Qdrant ports are bound to `127.0.0.1` and telemetry is disabled. The backend also rejects any service URL that does not target `localhost`, `127.0.0.1`, or `::1`.
 
-## Prerequis
+## Prerequisites
 
 - Docker Desktop
-- Ollama pour Windows
-- Python 3.11 ou plus recent
-- Node.js 20 ou plus recent
+- Ollama for Windows
+- Python 3.11 or newer
+- Node.js 20 or newer
 
-## Lancer les services locaux
+## Start the local services
 
-1. Demarrez Qdrant depuis la racine du projet :
+1. Start Qdrant from the project root:
 
    ```powershell
    docker compose up -d
    ```
 
-2. Installez et lancez Ollama, puis telechargez les modeles. Le modele de chat peut etre remplace par un modele francophone local compatible avec votre machine.
+2. Install and start Ollama, then download the models. The chat model can be replaced with any compatible local French model your machine can handle.
 
    ```powershell
    ollama pull llama3.1:8b
    ollama pull nomic-embed-text
    ```
 
-3. Creez le fichier local de configuration si vous souhaitez changer les modeles ou parametres :
+3. Create the local config file if you want to change models or settings:
 
    ```powershell
    Copy-Item .env.example backend\.env
    ```
 
-## Lancer l'application
+## Start the application
 
-### Demarrage en une commande
+### One-command startup
 
-Depuis la racine du projet, lancez le script PowerShell :
+From the project root, run the PowerShell script:
 
 ```powershell
 .\Start-Assistant.ps1
 ```
 
-Le script demarre Qdrant, verifie qu'Ollama repond localement, cree l'environnement Python si necessaire, installe les dependances absentes puis lance FastAPI et Vite. Ouvrez ensuite `http://localhost:5173`.
+The script starts Qdrant, checks that Ollama responds locally, creates the Python environment if needed, installs missing dependencies, then launches FastAPI and Vite. Open `http://localhost:5173` afterward.
 
-Lors d'un demarrage ulterieur, quand les dependances sont deja installees, vous pouvez ignorer leur verification :
+On later startups, when dependencies are already installed, you can skip their verification:
 
 ```powershell
 .\Start-Assistant.ps1 -SkipInstall
 ```
 
-Si PowerShell bloque le script pour cette session uniquement, executez une fois :
+If PowerShell blocks the script for this session only, run once:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 ```
 
-### Demarrage manuel
+### Manual startup
 
-1. Dans un premier terminal, installez les dependances backend et demarrez FastAPI :
+1. In one terminal, install backend dependencies and start FastAPI:
 
    ```powershell
    python -m venv .venv
@@ -82,7 +82,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
    uvicorn app.main:app --reload --port 8000
    ```
 
-2. Dans un second terminal, demarrez le frontend :
+2. In a second terminal, start the frontend:
 
    ```powershell
    Set-Location frontend
@@ -90,26 +90,26 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
    npm run dev
    ```
 
-3. Ouvrez `http://localhost:5173`.
+3. Open `http://localhost:5173`.
 
-## Langues de l'interface
+## Interface languages
 
-L'interface est disponible en francais et en anglais. Utilisez le selecteur `FR / EN` dans l'en-tete pour changer de langue. Le choix est conserve localement dans le navigateur et est reapplique au prochain demarrage. Les noms de bases, documents, notes et conversations deja enregistres ne sont pas modifies.
+The interface is available in French and English. Use the `FR / EN` selector in the header to change the language. The choice is stored locally in the browser and restored on the next launch. Existing knowledge base, document, note, and conversation names are not changed.
 
-## Ajouter des connaissances
+## Add knowledge
 
-Au premier demarrage, l'application cree une `Base personnelle` avec l'identifiant `1`. La page **Bases de connaissances** permet de lister les bases, en creer de nouvelles, modifier leur nom ou description et les supprimer. L'indexation utilise toujours la base selectionnee. Depuis cette page, collez une note ou importez plusieurs fichiers PDF, DOCX, TXT ou MD de 20 Mo maximum chacun, par selection ou glisser-deposer. Une note et des fichiers ne peuvent pas etre envoyes simultanement.
+On first launch, the app creates a `Base personnelle` knowledge base with ID `1`. The **Knowledge Bases** page lets you list bases, create new ones, rename or delete them, and edit their description. Indexing always uses the selected base. From this page, paste a note or import multiple PDF, DOCX, TXT, or MD files up to 20 MB each, either by selection or drag and drop. A note and files cannot be sent at the same time.
 
-L'endpoint `POST /ingest` accepte aussi une note via un formulaire :
+The `POST /ingest` endpoint also accepts a note through a form:
 
 ```powershell
-$form = @{ kb_id = '1'; note = 'J ai travaille comme analyste de donnees et je maitrise Python et SQL.' }
+$form = @{ kb_id = '1'; note = 'I worked as a data analyst and I am proficient in Python and SQL.' }
 Invoke-RestMethod -Method Post -Uri http://localhost:8000/ingest -ContentType 'application/x-www-form-urlencoded' -Body $form
 ```
 
-Le serveur conserve le texte brut dans SQLite, le decoupe en morceaux avec chevauchement, genere les embeddings par Ollama puis envoie les vecteurs a Qdrant. Si l'indexation Qdrant echoue, le document SQLite est retire afin de ne pas conserver de document incomplet.
+The server stores the raw text in SQLite, splits it into overlapping chunks, generates embeddings through Ollama, then sends the vectors to Qdrant. If Qdrant indexing fails, the SQLite document is removed so no partial document is kept.
 
-Lorsqu'une base est supprimee, ses documents SQLite et les vecteurs Qdrant ayant le meme `kb_id` sont egalement supprimes. Les endpoints de gestion sont :
+When a knowledge base is deleted, its SQLite documents and Qdrant vectors with the same `kb_id` are also deleted. The management endpoints are:
 
 ```text
 GET    /knowledge-bases
@@ -118,29 +118,29 @@ PUT    /knowledge-bases/{id}
 DELETE /knowledge-bases/{id}
 ```
 
-## Premier test de bout en bout
+## First end-to-end test
 
-Avec Qdrant et Ollama demarres, ajoutez d'abord une note, puis interrogez le chat. La collection Qdrant est creee automatiquement a la premiere indexation. Les sources affichees sous la reponse doivent contenir les extraits de la note ou du document utilise. Sans source qui atteint le seuil, la reponse reste `information insuffisante` et le LLM n'est pas appele.
+With Qdrant and Ollama running, add a note first, then query the chat. The Qdrant collection is created automatically at the first indexing step. The sources shown under the answer should contain excerpts from the note or document used. Without any source above the threshold, the answer remains `insufficient information` and the LLM is not called.
 
 ```powershell
 Invoke-RestMethod http://localhost:8000/health
-$body = @{ question = 'Que sais-tu de mon experience ?'; kb_ids = @() } | ConvertTo-Json -Compress
+$body = @{ question = 'What do you know about my experience?'; kb_ids = @() } | ConvertTo-Json -Compress
 (Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:8000/chat -ContentType 'application/json' -Body $body).Content
 ```
 
-Le flux SSE contient des evenements `token`, `sources` et `done`. Lorsque des sources existeront, la reponse LLM sera diffusee token par token et les extraits seront renvoyes dans l'evenement `sources`.
+The SSE stream contains `token`, `sources`, and `done` events. When sources exist, the LLM response is streamed token by token and the excerpts are returned in the `sources` event.
 
-## Historique des conversations
+## Conversation history
 
-Chaque question demarre une nouvelle conversation ou rejoint le fil selectionne. La question, la reponse complete et les sources RAG associees sont conservees uniquement dans `backend/assistant.db` (SQLite local). La page **Chat** affiche cet historique et permet de recharger un fil enregistre. Ce chemin est fixe, y compris lorsque FastAPI est lance depuis la racine du projet : les bases de connaissances et l'historique restent donc disponibles entre les demarrages.
+Each question starts a new conversation or continues the selected thread. The question, the full answer, and the associated RAG sources are stored only in `backend/assistant.db` (local SQLite). The **Chat** page shows this history and lets you reopen a saved thread. This path is fixed, even when FastAPI is launched from the project root: knowledge bases and history therefore remain available across restarts.
 
-Les endpoints locaux disponibles sont :
+The available local endpoints are:
 
 ```text
 GET /conversations
 GET /conversations/{id}
 ```
 
-## Etat du developpement
+## Development status
 
-Cette livraison couvre les etapes 1 et 2, la gestion locale des bases et l'historique local : socle local, garde-fou anti-hallucination, endpoint `POST /chat`, ingestion PDF/DOCX/TXT/MD ou notes libres, bases CRUD, conversations SQLite et chat React avec rendu incremental. Les prochaines etapes implementeront la selection multi-bases dans le chat, les reglages/persona persistants et la personnalisation complete du theme.
+This release covers steps 1 and 2, local knowledge base management, and local history: local foundation, anti-hallucination guardrail, `POST /chat` endpoint, PDF/DOCX/TXT/MD ingestion or free-form notes, CRUD knowledge bases, SQLite conversations, and React chat with incremental rendering. The next steps will implement multi-base selection in chat, persistent settings/persona, and full theme customization.
