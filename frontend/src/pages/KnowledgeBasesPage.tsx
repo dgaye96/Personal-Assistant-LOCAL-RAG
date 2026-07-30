@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
-import { Check, Database, FileUp, FolderPlus, Plus, Trash2, X } from 'lucide-react'
+import { BookOpen, Check, Database, FileUp, FolderPlus, Plus, Trash2, X, FileText } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
