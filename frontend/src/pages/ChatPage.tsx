@@ -55,6 +55,7 @@ export function ChatPage() {
   const [editedConversationTitle, setEditedConversationTitle] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const modelDropdownRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
   const [availableModels, setAvailableModels] = useState<Array<{id: string; name: string}>>([]
@@ -70,6 +71,13 @@ export function ChatPage() {
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [question])
 
   const orderedMessages = messages
   const sourceCount = messages.reduce((total, message) => total + (message.sources?.length ?? 0), 0)
@@ -520,6 +528,7 @@ export function ChatPage() {
             {error && <p className="chat-error" role="alert">{error}</p>}
             <form className="chat-input-form" onSubmit={sendMessage}>
               <textarea
+                ref={textareaRef}
                 id="question"
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}

@@ -390,7 +390,7 @@ p { margin: 0; }
   border: 0; outline: 0; background: transparent; resize: none;
   line-height: 1.6; color: var(--ink);
   min-height: 22px; max-height: 200px; padding: 0 0 6px;
-  overflow-y: auto; font-size: 15px;
+  overflow-y: auto; font-size: 15px; box-sizing: border-box;
 }
 .chat-input-form textarea::placeholder { color: var(--muted); }
 
