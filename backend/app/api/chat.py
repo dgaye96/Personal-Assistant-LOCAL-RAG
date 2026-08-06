@@ -15,10 +15,10 @@ router = APIRouter(tags=["chat"])
 
 @router.get("/models")
 async def list_models(request: Request) -> list[dict]:
-    """Returns all Ollama models available locally."""
+    """Returns locally available models that can be used for chat."""
     rag_service: RagService = request.app.state.rag_service
     try:
-        models = await rag_service.ollama.list_models()
+        models = await rag_service.ollama.list_chat_models()
         return [{"id": m["name"], "name": m["name"]} for m in models]
     except Exception:
         return []

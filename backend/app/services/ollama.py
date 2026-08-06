@@ -21,6 +21,21 @@ class OllamaClient:
             response.raise_for_status()
         return response.json().get("models", [])
 
+    async def list_chat_models(self) -> list[dict]:
+        """Returns locally installed, instruction-tuned models usable for chat."""
+        models = await self.list_models()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            chat_models = []
+            for model in models:
+                name = model["name"]
+                if name.endswith("-base"):
+                    continue
+                response = await client.post(f"{self.base_url}/api/show", json={"model": name})
+                response.raise_for_status()
+                if "completion" in response.json().get("capabilities", []):
+                    chat_models.append(model)
+        return chat_models
+
     async def embed(self, text: str) -> list[float]:
         payload = {"model": self.embedding_model, "input": text}
         async with httpx.AsyncClient(timeout=60.0) as client:
